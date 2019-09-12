@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netcoreapp2.2;netcoreapp3.0;netstandard2.0</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup>
-    <Description>Collection of HealthChecks functionality for AspNetCore or GenericHost.</Description>
-    <PackageTags>aspnetcore,dotnetcore,healthcheck,hosting,extensions</PackageTags>
+    <Description>The collection of the HealthChecks functionality for AspNetCore.</Description>
+    <PackageTags>aspnetcore, dotnetcore, healthcheck, hosting, extensions</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

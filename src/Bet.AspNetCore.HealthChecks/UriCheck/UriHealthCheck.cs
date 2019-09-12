@@ -1,10 +1,11 @@
-﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 
 namespace Bet.AspNetCore.HealthChecks.UriCheck
 {
@@ -13,7 +14,7 @@ namespace Bet.AspNetCore.HealthChecks.UriCheck
         private readonly IOptionsMonitor<UriHealthCheckOptions> _options;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly Dictionary<string, object> _data = new Dictionary<string, object>();
-        private bool _IsHealthy = true;
+        private bool _isHealthy = true;
 
         public UriHealthCheck(
             IOptionsMonitor<UriHealthCheckOptions> options,
@@ -38,36 +39,38 @@ namespace Bet.AspNetCore.HealthChecks.UriCheck
                 {
                     var httpClient = _httpClientFactory.CreateClient(checkName);
 
-                    var requestMessage = new HttpRequestMessage(option.HttpMethod, option.Uri);
-
-                    foreach (var (Name, Value) in option.Headers)
+                    using (var requestMessage = new HttpRequestMessage(option.HttpMethod, option.Uri))
                     {
-                        requestMessage.Headers.Add(Name, Value);
-                    }
-
-                    using (var timeoutSource = new CancellationTokenSource(option.Timeout))
-                    using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutSource.Token, cancellationToken))
-                    {
-                        var response = await httpClient.SendAsync(requestMessage, linkedSource.Token);
-
-                        if (!((int)response.StatusCode >= option.ExpectedHttpCodes.Min && (int)response.StatusCode <= option.ExpectedHttpCodes.Max))
+                        foreach (var (name, value) in option.Headers)
                         {
-                            _IsHealthy = false;
-
-                            var errorMessage = $"Discover endpoint #{index} is not responding with code in {option.ExpectedHttpCodes.Min}...{option.ExpectedHttpCodes.Max} range, the current status is {response.StatusCode}.";
-
-                            _data.Add(option.Uri.ToString(), errorMessage);
+                            requestMessage.Headers.Add(name, value);
                         }
-                        else
+
+                        using (var timeoutSource = new CancellationTokenSource(option.Timeout))
+                        using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutSource.Token, cancellationToken))
                         {
-                            var message = $"Discovered endpoint #{index} is responding with {response.StatusCode}.";
-                            _data.Add(option.Uri.ToString(), message);
+                            var response = await httpClient.SendAsync(requestMessage, linkedSource.Token);
+
+                            if (!((int)response.StatusCode >= option.ExpectedHttpCodes.Min && (int)response.StatusCode <= option.ExpectedHttpCodes.Max))
+                            {
+                                _isHealthy = false;
+
+                                var errorMessage = $"Discover endpoint #{index} is not responding with code in {option.ExpectedHttpCodes.Min}...{option.ExpectedHttpCodes.Max} range, the current status is {response.StatusCode}.";
+
+                                _data.Add(option.Uri.ToString(), errorMessage);
+                            }
+                            else
+                            {
+                                var message = $"Discovered endpoint #{index} is responding with {response.StatusCode}.";
+                                _data.Add(option.Uri.ToString(), message);
+                            }
+
+                            ++index;
                         }
-                        ++index;
                     }
                 }
 
-                var status = _IsHealthy ? HealthStatus.Healthy : context.Registration.FailureStatus;
+                var status = _isHealthy ? HealthStatus.Healthy : context.Registration.FailureStatus;
 
                 return new HealthCheckResult(
                     status,
@@ -77,7 +80,7 @@ namespace Bet.AspNetCore.HealthChecks.UriCheck
             }
             catch (Exception ex)
             {
-                //TODO: not expose all of the exception details for security reasons.
+                // TODO: not expose all of the exception details for security reasons.
                 return new HealthCheckResult(context.Registration.FailureStatus, exception: ex);
             }
         }

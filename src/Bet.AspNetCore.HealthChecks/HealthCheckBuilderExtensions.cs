@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Security;
 using System.Threading.Tasks;
 
+using Bet.AspNetCore.HealthChecks.CertificateCheck;
 using Bet.AspNetCore.HealthChecks.MemoryCheck;
 using Bet.AspNetCore.HealthChecks.SigtermCheck;
 using Bet.AspNetCore.HealthChecks.UriCheck;
@@ -19,12 +22,53 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class HealthCheckBuilderExtensions
     {
+        public static IHealthChecksBuilder AddSslCertificateCheck(
+            this IHealthChecksBuilder builder,
+            string name,
+            string baseUrl,
+            HealthStatus? failureStatus = default,
+            IEnumerable<string> tags = default)
+        {
+            builder.Services.AddHttpClient(name, (sp, config) =>
+            {
+                config.BaseAddress = new Uri(baseUrl);
+            }).ConfigurePrimaryHttpMessageHandler(sp =>
+            {
+                var handler = new HttpClientHandler
+                {
+                    ClientCertificateOptions = ClientCertificateOption.Manual,
+
+                    ServerCertificateCustomValidationCallback = (httpRequestMessage, certificate, cetChain, sslPolicyErrors) =>
+                    {
+                        var expirationDate = DateTime.Parse(certificate.GetExpirationDateString());
+                        if (expirationDate - DateTime.Today < TimeSpan.FromDays(30))
+                        {
+                            throw new Exception("Time to renew the certificate!");
+                        }
+
+                        if (sslPolicyErrors == SslPolicyErrors.None)
+                        {
+                            return true;
+                        }
+                        else
+                        {
+                            throw new Exception("Cert policy errors: " + sslPolicyErrors.ToString());
+                        }
+                    }
+                };
+                return handler;
+            });
+
+            builder.AddCheck<SslCertificateHealthCheck>(name, failureStatus, tags);
+            return builder;
+        }
+
         /// <summary>
         /// Add SIGTERM Healcheck that provides notification for orchestrator with unhealthy status once the application begins to shut down.
         /// </summary>
         /// <param name="builder">The <see cref="IHealthChecksBuilder"/>.</param>
         /// <param name="name">The name of the HealthCheck.</param>
-        /// <param name="failureStatus">The <see cref="HealthStatus"/>The type should be reported when the health check fails. Optional. If <see langword="null"/> then</param>
+        /// <param name="failureStatus">The <see cref="HealthStatus"/>The type should be reported when the health check fails. Optional. If <see langword="null"/> then.</param>
         /// <param name="tags">A list of tags that can be used to filter sets of health checks. Optional.</param>
         /// <returns></returns>
         public static IHealthChecksBuilder AddSigtermCheck(
@@ -48,7 +92,7 @@ namespace Microsoft.Extensions.DependencyInjection
             // TODO ability to add custom httpclient for the calls.
             var client = builder.Services.AddHttpClient(name, (sp, config) =>
             {
-                //config.Timeout = TimeSpan.FromSeconds(10);
+                // config.Timeout = TimeSpan.FromSeconds(10);
             });
 
             var check = new UriHealthCheckBuilder(builder.Services, name);
@@ -66,7 +110,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="builder">The <see cref="IHealthChecksBuilder"/>.</param>
         /// <param name="name">The name of the HealthCheck.</param>
         /// <param name="registration">The <see cref="Action{UriHealthCheckBuilder}"/> delegate.</param>
-        /// <param name="failureStatus">The <see cref="HealthStatus"/>The type should be reported when the health check fails. Optional. If <see langword="null"/> then</param>
+        /// <param name="failureStatus">The <see cref="HealthStatus"/>The type should be reported when the health check fails. Optional. If <see langword="null"/> then.</param>
         /// <param name="tags">A list of tags that can be used to filter sets of health checks. Optional.</param>
         /// <returns></returns>
         public static IHealthChecksBuilder AddUriHealthCheck(
@@ -79,14 +123,14 @@ namespace Microsoft.Extensions.DependencyInjection
             // TODO ability to add custom httpclient for the calls.
             var client = builder.Services.AddHttpClient(name, (sp, config) =>
             {
-                //config.Timeout = TimeSpan.FromSeconds(10);
+                // config.Timeout = TimeSpan.FromSeconds(10);
             });
 
             var check = new UriHealthCheckBuilder(builder.Services, name);
 
             registration(check);
 
-            builder.AddCheck<UriHealthCheck>(name,failureStatus,tags);
+            builder.AddCheck<UriHealthCheck>(name, failureStatus, tags);
 
             return builder;
         }
@@ -96,7 +140,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         /// <param name="builder">The <see cref="IHealthChecksBuilder"/>.</param>
         /// <param name="name">The name of the HealthCheck.</param>
-        /// <param name="failureStatus">The <see cref="HealthStatus"/>The type should be reported when the health check fails. Optional. If <see langword="null"/> then</param>
+        /// <param name="failureStatus">The <see cref="HealthStatus"/>The type should be reported when the health check fails. Optional. If <see langword="null"/> then.</param>
         /// <param name="tags">A list of tags that can be used to filter sets of health checks. Optional.</param>
         /// <param name="thresholdInBytes">The Threshold in bytes. The default is 1073741824 bytes or 1Gig.</param>
         /// <returns></returns>

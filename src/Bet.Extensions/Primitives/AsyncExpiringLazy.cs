@@ -2,32 +2,34 @@
 
 namespace System.Threading
 {
+#pragma warning disable CA1001 // Types that own disposable fields should be disposable
     public class AsyncExpiringLazy<T>
+#pragma warning restore CA1001 // Types that own disposable fields should be disposable
     {
-        private readonly AsyncLock valueLock = new AsyncLock();
+        private readonly AsyncLock _valueLock = new AsyncLock();
 
         private readonly Func<AsyncExpirationValue<T>, Task<AsyncExpirationValue<T>>> _valueProvider;
 
         private AsyncExpirationValue<T> _value;
-
-        private bool IsValueCreatedInternal => _value.Result != null && _value.ValidUntil > DateTimeOffset.UtcNow;
 
         public AsyncExpiringLazy(Func<AsyncExpirationValue<T>, Task<AsyncExpirationValue<T>>> vauleProvider)
         {
             _valueProvider = vauleProvider ?? throw new ArgumentNullException(nameof(vauleProvider));
         }
 
-        public async Task<bool> IsValueCreated()
+        private bool IsValueCreatedInternal => _value.Result != null && _value.ValidUntil > DateTimeOffset.UtcNow;
+
+        public async Task<bool> IsValueCreated(CancellationToken cancellationToken = default)
         {
-            using (await valueLock.LockAsync().ConfigureAwait(false))
+            using (await _valueLock.LockAsync(cancellationToken).ConfigureAwait(false))
             {
-               return IsValueCreatedInternal;
+                return IsValueCreatedInternal;
             }
         }
 
-        public async Task<T> Value()
+        public async Task<T> Value(CancellationToken cancellationToken = default)
         {
-            using(await valueLock.LockAsync().ConfigureAwait(false))
+            using (await _valueLock.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 if (IsValueCreatedInternal)
                 {
@@ -40,9 +42,9 @@ namespace System.Threading
             }
         }
 
-        public async Task Invalidate()
+        public async Task Invalidate(CancellationToken cancellationToken = default)
         {
-            using(await valueLock.LockAsync().ConfigureAwait(false))
+            using (await _valueLock.LockAsync(cancellationToken).ConfigureAwait(false))
             {
                 _value = default;
             }

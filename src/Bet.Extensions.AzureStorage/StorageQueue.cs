@@ -20,11 +20,6 @@ namespace Bet.Extensions.AzureStorage
         private readonly ILogger _logger;
         private readonly Lazy<Task<CloudQueue>> _queue;
 
-        public Task<CloudQueue> Queue
-        {
-            get { return _queue.Value; }
-        }
-
         public StorageQueue(
             StorageQueueOptions storageQueueOptions,
             StorageAccountOptions storageAccountOptions,
@@ -42,6 +37,8 @@ namespace Bet.Extensions.AzureStorage
             _queue = new Lazy<Task<CloudQueue>>(() => CreateCloudQueue(_storageQueueOptions, storageAccountOptions));
         }
 
+        public Task<CloudQueue> Queue => _queue.Value;
+
         public async Task SendAsync(
             CloudQueueMessage message,
             CancellationToken cancellationToken = default)
@@ -51,14 +48,14 @@ namespace Bet.Extensions.AzureStorage
                 throw new ArgumentNullException(nameof(message));
             }
 
-            await (await Queue).AddMessageAsync(message,cancellationToken);
+            await (await Queue).AddMessageAsync(message, cancellationToken);
         }
 
         public async Task SendAsync<T>(
             T message,
             CancellationToken cancellationToken = default)
         {
-            if (null == message)
+            if (message == null)
             {
                 throw new ArgumentNullException(nameof(message));
             }
@@ -103,7 +100,7 @@ namespace Bet.Extensions.AzureStorage
                 return JsonConvert.DeserializeObject<T>(message.AsString);
             }
 
-            return default(T);
+            return default;
         }
 
         public async Task<IEnumerable<CloudQueueMessage>> GetManyAsync(
@@ -112,7 +109,7 @@ namespace Bet.Extensions.AzureStorage
             TimeSpan? visibilityTimeout = null,
             CancellationToken cancellationToken = default)
         {
-            if (0 >= messageCount)
+            if (messageCount <= 0)
             {
                 messageCount = 1;
             }
@@ -146,7 +143,7 @@ namespace Bet.Extensions.AzureStorage
 
         public async Task DeleteAsync(CloudQueueMessage message, CancellationToken cancellationToken = default)
         {
-            if (null == message)
+            if (message == null)
             {
                 throw new ArgumentNullException(nameof(message));
             }
@@ -203,6 +200,7 @@ namespace Bet.Extensions.AzureStorage
             {
                 _logger?.LogInformation("  - Using existing Azure Queue [{QueueName}] [{optionsName}].", options.QueueName, options);
             }
+
             sw.Stop();
 
             _logger?.LogInformation("  - {nameOf} ran for {seconds}", nameof(CreateCloudQueue), sw.Elapsed.TotalSeconds);

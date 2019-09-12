@@ -16,11 +16,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.OpenApi.Models;
 
 namespace Bet.AspNetCore.Sample
 {
     public class Startup
     {
+        private const string AppName = "Bet.AspNetCore.Sample";
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -42,7 +45,8 @@ namespace Bet.AspNetCore.Sample
 
             services.AddModelPredictionEngine<SentimentObservation, SentimentPrediction>("MLContent/SentimentModel.zip", "SentimentModel");
 
-            services.AddModelPredictionEngine<SpamInput, SpamPrediction>(mlOptions =>
+            services.AddModelPredictionEngine<SpamInput, SpamPrediction>(
+                mlOptions =>
             {
                 mlOptions.CreateModel = (mlContext) =>
                 {
@@ -51,12 +55,10 @@ namespace Bet.AspNetCore.Sample
                         return mlContext.Model.Load(fileStream, out var inputSchema);
                     }
                 };
-            },"SpamModel");
+            }, "SpamModel");
 
             // configure Options for the App.
             services.ConfigureWithDataAnnotationsValidation<AppSetting>(Configuration, "App");
-
-            services.AddSwaggerGenWithApiVersion();
 
             services.Configure<CookiePolicyOptions>(options =>
             {
@@ -68,13 +70,17 @@ namespace Bet.AspNetCore.Sample
             services.AddDbContext<ApplicationDbContext>(options =>
             {
                 options.UseSqlite(Configuration.GetConnectionString("DefaultConnection"));
-                //options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"));
+
+                // options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"));
             });
+
             services.AddDefaultIdentity<IdentityUser>()
-                .AddDefaultUI(UIFramework.Bootstrap4)
                 .AddEntityFrameworkStores<ApplicationDbContext>();
 
             services.AddHealthChecks()
+
+                .AddSslCertificateCheck("localhost", "https://localhost:5001")
+                .AddSslCertificateCheck("kdcllc", "https://kingdavidconsulting.com")
 
                 .AddUriHealthCheck("200_check", builder =>
                 {
@@ -104,6 +110,11 @@ namespace Bet.AspNetCore.Sample
                 .AddBlobContainer<UploadsBlobOptions>();
 
             services.AddAzureStorageForStaticFiles<UploadsBlobStaticFilesOptions>();
+
+            services.AddSwaggerGen(options => options.SwaggerDoc("v1", new OpenApiInfo { Title = $"{AppName} API", Version = "v1" }));
+
+            // Preview 8 has been fixed https://github.com/microsoft/aspnet-api-versioning/issues/499
+            services.AddSwaggerGenWithApiVersion();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -112,21 +123,24 @@ namespace Bet.AspNetCore.Sample
             IWebHostEnvironment env,
             IApiVersionDescriptionProvider provider)
         {
-            app.UseIfElse(env.IsDevelopment(), dev =>
-            {
-                app.UseDeveloperExceptionPage();
-                app.UseDatabaseErrorPage();
-                app.UseDeveloperListRegisteredServices();
-                return dev;
-            },
-            prod =>
-            {
-                app.UseExceptionHandler("/Error");
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-                app.UseHsts();
+            app.UseIfElse(
+                env.IsDevelopment(),
+                dev =>
+                {
+                    app.UseDeveloperExceptionPage();
+                    app.UseDatabaseErrorPage();
+                    app.UseDeveloperListRegisteredServices();
+                    return dev;
+                },
+                prod =>
+                {
+                    app.UseExceptionHandler("/Error");
 
-                return prod;
-            });
+                    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+                    app.UseHsts();
+
+                    return prod;
+                });
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
@@ -156,13 +170,16 @@ namespace Bet.AspNetCore.Sample
 
             app.UseSwagger();
 
+            // app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", $"{AppName} API v1"));
+
+            // Preview 8 has been fixed https://github.com/microsoft/aspnet-api-versioning/issues/499
             app.UseSwaggerUI(options =>
             {
                 foreach (var description in provider.ApiVersionDescriptions)
                 {
                     options.SwaggerEndpoint(
-                        $"/swagger/{description.GroupName}/swagger.json",
-                        description.GroupName.ToUpperInvariant());
+                         $"/swagger/{description.GroupName}/swagger.json",
+                         description.GroupName.ToUpperInvariant());
                 }
             });
         }

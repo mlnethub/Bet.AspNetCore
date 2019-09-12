@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using System;
+using System.IO;
+
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.Swagger;
-using System;
-using System.IO;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -12,46 +12,44 @@ namespace Microsoft.Extensions.DependencyInjection
     {
         public static IServiceCollection AddSwaggerGenWithApiVersion(
             this IServiceCollection services,
-            string appName = null )
+            string appName = null)
         {
             services.AddVersionedApiExplorer();
 
-            //TODO: fix it once this is resolve https://github.com/microsoft/aspnet-api-versioning/issues/499
-            //services.AddApiVersioning(o =>
-            //{
-            //    o.ReportApiVersions = true;
-            //    o.AssumeDefaultVersionWhenUnspecified = true;
-            //});
+            services.AddApiVersioning(o =>
+            {
+                o.ReportApiVersions = true;
+                o.AssumeDefaultVersionWhenUnspecified = true;
+            });
 
             services.AddMvcCore().AddApiExplorer()
-                .AddAuthorization()
-                .AddFormatterMappings()
-                .AddCacheTagHelper()
-                .AddDataAnnotations();
+                           .AddAuthorization()
+                           .AddFormatterMappings()
+                           .AddCacheTagHelper()
+                           .AddDataAnnotations();
 
             services.AddSwaggerGen(options =>
-            {
-                // build intermediate container once.
-                var sp = services.BuildServiceProvider();
-                var config = sp.GetRequiredService<IConfiguration>();
+                       {
+                           // build intermediate container once.
+                           var sp = services.BuildServiceProvider();
+                           var config = sp.GetRequiredService<IConfiguration>();
 
-                var provider = sp.GetRequiredService<IApiVersionDescriptionProvider>();
-                var appliationName = appName ?? config[WebHostDefaults.ApplicationKey];
+                           var provider = sp.GetRequiredService<IApiVersionDescriptionProvider>();
+                           var appliationName = appName ?? config[WebHostDefaults.ApplicationKey];
 
-                foreach (var description in provider.ApiVersionDescriptions)
-                {
-                    options.SwaggerDoc(
-                        description.GroupName,
+                           foreach (var description in provider.ApiVersionDescriptions)
+                           {
+                               options.SwaggerDoc(
+                                   description.GroupName,
+                                   new OpenApiInfo
+                                   {
+                                       Title = $"{appliationName} API {description.ApiVersion}",
+                                       Version = description.ApiVersion.ToString()
+                                   });
+                           }
 
-                        new OpenApiInfo()
-                        {
-                            Title = $"{appliationName} API {description.ApiVersion}",
-                            Version = description.ApiVersion.ToString()
-                        });
-                }
-
-                options.IncludeXmlComments(GetXmlDocPath(appliationName));
-            });
+                           options.IncludeXmlComments(GetXmlDocPath(appliationName));
+                       });
 
             return services;
         }

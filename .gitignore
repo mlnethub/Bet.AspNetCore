@@ -3,6 +3,11 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+nugets/
+
+# StyleCop
+#[Ss]tyle[Cc]op.*
+
 # User-specific files
 *.suo
 *.user
