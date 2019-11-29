@@ -24,7 +24,7 @@ namespace System
         {
             if (string.IsNullOrEmpty(value))
             {
-                return null;
+                return string.Empty;
             }
 
             var bytes = Encoding.UTF8.GetBytes(value);
@@ -37,11 +37,11 @@ namespace System
         /// <param name="value"></param>
         /// <param name="encoder"></param>
         /// <returns></returns>
-        public static string FromBase64String(this string value, Encoding encoder = null)
+        public static string FromBase64String(this string value, Encoding? encoder = null)
         {
             if (string.IsNullOrEmpty(value))
             {
-                return null;
+                return string.Empty;
             }
 
             var bytes = Convert.FromBase64String(value);
@@ -52,6 +52,21 @@ namespace System
             }
 
             return Encoding.ASCII.GetString(bytes);
+        }
+
+        /// <summary>
+        /// Converts string to bytes.
+        /// </summary>
+        /// <param name="s"></param>
+        /// <returns></returns>
+        public static byte[] ToBytes(this string s)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return Array.Empty<byte>();
+            }
+
+            return Encoding.ASCII.GetBytes(s);
         }
     }
 }

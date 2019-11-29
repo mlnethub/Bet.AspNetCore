@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+
 using Microsoft.Extensions.Options;
 
 namespace Bet.Extensions.Options
@@ -31,6 +32,7 @@ namespace Bet.Extensions.Options
             OptionsType = optionsType != default ? optionsType : throw new ArgumentNullException(nameof(optionsType));
 
             _failures = new string[] { failure };
+            _message = string.Empty;
         }
 
         /// <summary>
@@ -40,6 +42,7 @@ namespace Bet.Extensions.Options
         /// <param name="optionsType"></param>
         public OptionsValidationException(IEnumerable<string> failures, (Type type, string sectionName) optionsType)
         {
+            _message = string.Empty;
             _failures = failures ?? Array.Empty<string>().ToArray();
 
             OptionsType = optionsType != default ? optionsType : throw new ArgumentNullException(nameof(optionsType));

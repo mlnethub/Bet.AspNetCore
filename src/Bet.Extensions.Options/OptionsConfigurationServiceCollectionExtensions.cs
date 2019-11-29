@@ -1,5 +1,7 @@
 ﻿using System;
+
 using Bet.Extensions.Options;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
@@ -8,7 +10,7 @@ namespace Microsoft.Extensions.DependencyInjection
     public static class OptionsConfigurationServiceCollectionExtensions
     {
         /// <summary>
-        /// Registers a configuration instance which TOptions will bind against without passing <see cref="IConfiguration"/> into registration.
+        /// Registers a configuration instance which TOptions will bind against without passing <see cref="IConfiguration"/> into the registration.
         /// </summary>
         /// <typeparam name="TConfigureType"></typeparam>
         /// <typeparam name="TOptions"></typeparam>
@@ -86,7 +88,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <returns></returns>
         public static IServiceCollection Configure<TOptions>(
             this IServiceCollection services,
-            string sectionName = default) where TOptions : class, new()
+            string? sectionName = default) where TOptions : class, new()
         {
             return services.Configure<TOptions>(_ => { }, sectionName);
         }
@@ -102,7 +104,7 @@ namespace Microsoft.Extensions.DependencyInjection
         public static IServiceCollection Configure<TOptions>(
             this IServiceCollection services,
             Action<BinderOptions> configureBinder,
-            string sectionName = null)
+            string? sectionName = default)
             where TOptions : class, new()
         {
             if (services == null)

@@ -15,8 +15,7 @@ namespace Microsoft.Extensions.Configuration
         /// Displays all of the application configurations based on the Configuration Provider.
         /// </summary>
         /// <param name="config"></param>
-        public static void DebugConfigurations(
-            this IConfigurationRoot config)
+        public static void DebugConfigurations(this IConfigurationRoot config)
         {
             using (var logFactory = GetLoggerFactory())
             {
@@ -30,8 +29,7 @@ namespace Microsoft.Extensions.Configuration
         /// Displays all of the application configurations based on the Configuration Provider.
         /// </summary>
         /// <param name="config"></param>
-        public static void DebugConfigurationsWithSerilog(
-            this IConfigurationRoot config)
+        public static void DebugConfigurationsWithSerilog(this IConfigurationRoot config)
         {
             var logger = new LoggerConfiguration()
                                               .ReadFrom.Configuration(config)
@@ -41,7 +39,8 @@ namespace Microsoft.Extensions.Configuration
             var allConfigurations = config.GetDebugView();
             logger.Debug(allConfigurations);
         }
-#if NETSTANDARD2_0 || NETCOREAPP2_2
+
+#if NETSTANDARD2_0
         /// <summary>
         /// Generates a human-readable view of the configuration showing where each value came from.
         /// In version 3.0 this can be utilized directly.
@@ -89,7 +88,7 @@ namespace Microsoft.Extensions.Configuration
             return builder.ToString();
         }
 
-        private static (string Value, IConfigurationProvider Provider) GetValueAndProvider(
+        private static (string value, IConfigurationProvider provider) GetValueAndProvider(
             IConfigurationRoot root,
             string key)
         {
@@ -101,7 +100,7 @@ namespace Microsoft.Extensions.Configuration
                 }
             }
 
-            return (null, null);
+            return (string.Empty, default!);
         }
 #endif
 
@@ -111,8 +110,9 @@ namespace Microsoft.Extensions.Configuration
         /// <returns></returns>
         private static ILoggerFactory GetLoggerFactory()
         {
-            ILoggerFactory result = null;
-#if NETCOREAPP3_0
+            ILoggerFactory? result = null;
+
+#if NETSTANDARD2_1
             result = LoggerFactory.Create(builder =>
             {
                 builder.AddDebug();

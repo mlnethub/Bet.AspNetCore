@@ -46,7 +46,7 @@ namespace Bet.Extensions.ML.Sentiment
         /// 2. BuildTrainingPipeline()
         /// 3. TrainModel()
         /// 4. Evaluate().
-        /// 5. SaveModelResultAsync()
+        /// 5. SaveModelResultAsync().
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns></returns>
@@ -58,31 +58,37 @@ namespace Bet.Extensions.ML.Sentiment
             // 1. load default ML data set
             _logger.LogInformation("[LoadDataset][Started]");
             _modelBuilder.LoadDefaultData().BuiltDataView();
+
+            if (_modelBuilder?.DataView == null)
+            {
+                throw new NullReferenceException("DataView wasn't loaded");
+            }
+
             _logger.LogInformation(
-                "[LoadDataset][Count]: {rowsCount} - elapsed time: {elapsed}",
+                "[LoadDataset][Count]: {rowsCount} - elapsed time: {elapsed} ms",
                 _modelBuilder.DataView.GetRowCount(),
                 sw.GetElapsedTime().Milliseconds);
 
             // 2. build training pipeline
             _logger.LogInformation("[BuildTrainingPipeline][Started]");
             var buildTrainingPipelineResult = _modelBuilder.BuildTrainingPipeline();
-            _logger.LogInformation("[BuildTrainingPipeline][Ended] elapsed time: {elapsed}", buildTrainingPipelineResult.ElapsedMilliseconds);
+            _logger.LogInformation("[BuildTrainingPipeline][Ended] elapsed time: {elapsed} ms", buildTrainingPipelineResult.ElapsedMilliseconds);
 
             // 3. train the model
             _logger.LogInformation("[TrainModel][Started]");
             var trainModelResult = _modelBuilder.TrainModel();
-            _logger.LogInformation("[TrainModel][Ended] elapsed time: {elapsed}", trainModelResult.ElapsedMilliseconds);
+            _logger.LogInformation("[TrainModel][Ended] elapsed time: {elapsed} ms", trainModelResult.ElapsedMilliseconds);
 
             // 4. evaluate quality of the pipeline
             _logger.LogInformation("[Evaluate][Started]");
             var evaluateResult = _modelBuilder.Evaluate();
-            _logger.LogInformation("[Evaluate][Ended] elapsed time: {elapsed}", evaluateResult.ElapsedMilliseconds);
+            _logger.LogInformation("[Evaluate][Ended] elapsed time: {elapsed} ms", evaluateResult.ElapsedMilliseconds);
             _logger.LogInformation(evaluateResult.ToString());
 
             // Save Results.
             await _storageProvider.SaveModelResultAsync(evaluateResult, Name, cancellationToken);
 
-            _logger.LogInformation("[TrainModelAsync][Ended] elapsed time: {elapsed}", sw.GetElapsedTime().Milliseconds);
+            _logger.LogInformation("[TrainModelAsync][Ended] elapsed time: {elapsed} ms", sw.GetElapsedTime().Milliseconds);
             await Task.CompletedTask;
         }
 
@@ -103,7 +109,7 @@ namespace Bet.Extensions.ML.Sentiment
 
             await Task.WhenAll(tasks);
 
-            _logger.LogInformation("[ClassifyTestAsync][Ended] elapsed time: {elapsed}", sw.GetElapsedTime().TotalMilliseconds);
+            _logger.LogInformation("[ClassifyTestAsync][Ended] elapsed time: {elapsed} ms", sw.GetElapsedTime().TotalMilliseconds);
         }
 
         private Task ClassifyAsync(
@@ -117,7 +123,7 @@ namespace Bet.Extensions.ML.Sentiment
                 {
                     var input = new SentimentIssue { Text = text };
 
-                    SentimentPrediction prediction = null;
+                    SentimentPrediction? prediction = null;
 
                     lock (_lockObject)
                     {

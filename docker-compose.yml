@@ -1,22 +1,45 @@
-version: '3'
+#------------------------------------------------------------------------------------------------------------------------
+#
+# docker-compose -f "docker-compose.yml" -f "docker-compose.override.yml" up -d --no-recreate bet.hosting
+#
+# docker-compose -f "docker-compose.yml"  up  -d --no-recreate bet.hosting
+#------------------------------------------------------------------------------------------------------------------------
+
+version: '3.4'
 
 services:
-  bet.aspnetcore.build:
-    image: betaspnetcore:local
+  bet.aspnetcore.web:
+    image: ${DOCKER_REGISTRY-}/bet-aspnetcore-web-sample:${TAG}
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: src/Bet.AspNetCore.Sample/Dockerfile
       args:
-        VERSION: ${VERSION}
+        RUNTESTS: "false"
+        VERBOSE: "false"
+        #NUGET_RESTORE: "-f" #overides the --disable-parallel
+        PROJECT_PATH: "/src/Bet.AspNetCore.Sample/Bet.AspNetCore.Sample.csproj"
+        SOLUTION_BASE: "false"
 
-  bet.aspnetcore.tests:
-    image: betaspnetcore:local
-    entrypoint: dotnet test --logger trx --results-directory /var/temp
-    volumes:
-      - ${SYSTEM_DEFAULTWORKINGDIRECTORY:-.}/TestResults/:/var/temp
+  bet.aspnetcore.webapi:
+    image: ${DOCKER_REGISTRY-}/bet-aspnetcore-webapi-sample:${TAG}
+    build:
+      context: .
+      dockerfile: src/Bet.ML.WebApi.Sample/Dockerfile
+      args:
+        RUNTESTS: "false"
+        VERBOSE: "false"
+        #NUGET_RESTORE: "-f" #overides the --disable-parallel
+        PROJECT_PATH: "/src/Bet.ML.WebApi.Sample/Bet.ML.WebApi.Sample.csproj"
+        SOLUTION_BASE: "false"
 
-  bet.aspnetcore.nuget:
-    image: betaspnetcore:local
-    entrypoint: cp -r /app/nugets /
-    volumes:
-       - ${BUILD_ARTIFACTSTAGINGDIRECTORY:-./nugets/}:/nugets
+  bet.hosting:
+    image: ${DOCKER_REGISTRY-}/bet-hosting-sample:${TAG}
+    build:
+      context: .
+      dockerfile: src/Bet.Hosting.Sample/Dockerfile
+      args:
+        RUNTESTS: "false"
+        VERBOSE: "false"
+        #NUGET_RESTORE: "-f" #overides the --disable-parallel
+        PROJECT_PATH: "/src/Bet.Hosting.Sample/Bet.Hosting.Sample.csproj"
+        SOLUTION_BASE: "false"
