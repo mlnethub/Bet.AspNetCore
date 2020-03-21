@@ -2,13 +2,14 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-using Bet.Hosting.Sample.Services;
+using Bet.Extensions.ML.ModelCreation.Services;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace Bet.Hosting.Sample
 {
@@ -38,10 +39,10 @@ namespace Bet.Hosting.Sample
                         await host.StartAsync();
 
                         var scope = host.Services.CreateScope();
-                        var token = scope.ServiceProvider.GetRequiredService<IHostApplicationLifetime>();
+                        var appLifeTime = scope.ServiceProvider.GetRequiredService<IHostApplicationLifetime>();
 
-                        var job = scope.ServiceProvider.GetRequiredService<IModelBuildersJobService>();
-                        await job.RunAsync(token.ApplicationStopping);
+                        var job = scope.ServiceProvider.GetRequiredService<IModelCreationService>();
+                        await job.BuildModelsAsync(appLifeTime.ApplicationStopping);
 
                         await host.StopAsync();
                         return 0;
@@ -80,26 +81,40 @@ namespace Bet.Hosting.Sample
                         configuration.DebugConfigurations();
                     }
                 })
-                .ConfigureLogging((hostingContext, logger) =>
+                .UseSerilog((hostingContext, loggerBuilder) =>
                 {
-                    logger.AddConfiguration(hostingContext.Configuration);
-                    logger.AddConsole();
-                    logger.AddDebug();
+                    var applicationName = $"BetHostingSample-{hostingContext.HostingEnvironment.EnvironmentName}";
+                    loggerBuilder
+                            .ReadFrom.Configuration(hostingContext.Configuration)
+                            .Enrich.FromLogContext()
+                            .WriteTo.Console()
+                            .AddApplicationInsights(hostingContext.Configuration)
+                            .AddAzureLogAnalytics(hostingContext.Configuration, applicationName: applicationName);
                 })
                 .ConfigureServices(services =>
                 {
                     if (runAsCronJob)
                     {
-                        services.AddModelBuildersCronJobService();
+                        services.AddMachineLearningModels();
                     }
                     else
                     {
                         services.AddHealthChecks()
+
+                                // memory check
                                 .AddMemoryHealthCheck()
+
+                                // dummy check
                                 .AddCheck("Healthy_Check_Two", () => HealthCheckResult.Healthy())
+
+                                // health check for the worker process.
                                 .AddSocketListener(8080)
+
+                                // publisher to publish logs.
                                 .AddLoggerPublisher();
-                        services.AddModelBuildersTimedService();
+
+                        // adds ML.NET model generations every 30 mins.
+                        services.AddMachineLearningHostedService();
                     }
                 });
         }

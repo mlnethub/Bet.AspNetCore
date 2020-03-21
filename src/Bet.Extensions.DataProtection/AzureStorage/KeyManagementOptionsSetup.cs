@@ -2,15 +2,24 @@
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Microsoft.AspNetCore.DataProtection.AzureStorage;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Azure.Services.AppAuthentication;
+
+#if NETSTANDARD2_1
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
+#endif
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
+#if NETSTANDARD2_0
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Auth;
+using Microsoft.WindowsAzure.Storage.Blob;
+#endif
 
 namespace Bet.Extensions.DataProtection.AzureStorage
 {
@@ -49,19 +58,17 @@ namespace Bet.Extensions.DataProtection.AzureStorage
 
             var (authResult, next) = await GetToken(state);
 
-            _logger.LogInformation("Azure Storage Authentication duration: {0}", sw.GetElapsedTime().TotalSeconds);
+            _logger.LogInformation("[Azure Storage][DataProtection] Authentication Elapsed: {elapsed}sec", sw.GetElapsedTime().TotalSeconds);
 
             if (next.Ticks < 0)
             {
-                next = default;
-
-                _logger.LogInformation("Azure Storage Authentication Renewing Token...");
+                _logger.LogInformation("[Azure Storage][DataProtection] Authentication Renewing Token...");
 
                 var swr = ValueStopwatch.StartNew();
 
                 (authResult, next) = await GetToken(state);
 
-                _logger.LogInformation("Azure Storage Authentication Renewing Token duration: {0}", swr.GetElapsedTime().TotalSeconds);
+                _logger.LogInformation("[Azure Storage][DataProtection] Authentication Renewing Token Elapsed: {elapsed}", swr.GetElapsedTime().TotalSeconds);
             }
 
             // Return the new token and the next refresh time.
@@ -96,7 +103,7 @@ namespace Bet.Extensions.DataProtection.AzureStorage
             {
                 account = cloudStorageAccount;
 
-                _logger.LogInformation("Azure Storage Authentication with ConnectionString.");
+                _logger.LogInformation("[Azure Storage][DataProtection] Authenticating with ConnectionString.");
             }
             else if (!string.IsNullOrEmpty(options.Name)
                 && string.IsNullOrEmpty(options.Token))
@@ -123,13 +130,13 @@ namespace Bet.Extensions.DataProtection.AzureStorage
 
                 account = new CloudStorageAccount(storageCredentials, options.Name, string.Empty, true);
 
-                _logger.LogInformation("Azure Storage Authentication with MSI Token.");
+                _logger.LogInformation("[Azure Storage][DataProtection] Authenticating with MSI Token.");
             }
             else if (!string.IsNullOrEmpty(options.Name)
                 && !string.IsNullOrEmpty(options.Token))
             {
                 account = new CloudStorageAccount(new StorageCredentials(options.Token), options.Name, true);
-                _logger.LogInformation("Azure Storage Authentication with SAS Token.");
+                _logger.LogInformation("[Azure Storage][DataProtection] Authenticating with SAS Token.");
             }
             else
             {
@@ -144,25 +151,27 @@ namespace Bet.Extensions.DataProtection.AzureStorage
             CloudStorageAccount cloudStorageAccount,
             CancellationToken cancellationToken = default)
         {
-            var sw = Stopwatch.StartNew();
+            var sw = ValueStopwatch.StartNew();
 
             var cloudBlobClient = cloudStorageAccount.CreateCloudBlobClient();
 
             var cloudBlobContainer = cloudBlobClient.GetContainerReference(options.ContainerName);
-
+#if NETSTANDARD2_1
             var created = await cloudBlobContainer.CreateIfNotExistsAsync(cancellationToken);
+#elif NETSTANDARD2_0
+            var created = await cloudBlobContainer.CreateIfNotExistsAsync();
+#endif
             if (created)
             {
-                _logger?.LogInformation("  - No Azure Blob [{containerName}] found - so one was auto created.", options.ContainerName);
+                _logger.LogInformation("[Azure Blob][DataProtection] No Azure Blob [{blobName}] found - so one was auto created.", options.ContainerName);
             }
             else
             {
-                _logger?.LogInformation("  - Using existing Azure Blob [{containerName}] [{blobName}].", options.ContainerName, options.KeyBlobName);
+                _logger.LogInformation("[Azure Blob][DataProtection] Using existing Azure Blob:[{blobName}].", options.ContainerName);
             }
 
-            sw.Stop();
+            _logger.LogInformation("[Azure Blob][DataProtection] Completed: {methodName}; Elapsed: {elapsed}sec", nameof(CreateCloudBlobContainer), sw.GetElapsedTime().TotalSeconds);
 
-            _logger?.LogInformation("  - {nameOf} ran for {seconds} sc", nameof(CreateCloudBlobContainer), sw.Elapsed.TotalSeconds);
             return cloudBlobContainer;
         }
     }
