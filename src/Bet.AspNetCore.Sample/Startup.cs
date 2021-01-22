@@ -1,12 +1,16 @@
 using System;
+using System.Net.Http;
 
 using Bet.AspNetCore.Middleware.Diagnostics;
 using Bet.AspNetCore.Sample.Data;
 using Bet.AspNetCore.Sample.Options;
 
+using Hellang.Middleware.ProblemDetails;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -19,8 +23,6 @@ namespace Bet.AspNetCore.Sample
 {
     public class Startup
     {
-        private const string AppName = "Bet.AspNetCore.Sample";
-
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -58,6 +60,12 @@ namespace Bet.AspNetCore.Sample
             // adds healthchecks
             services.AddAppHealthChecks(Configuration);
 
+            // https://docs.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-3.1
+            services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            });
+
             services.Configure<CookiePolicyOptions>(options =>
             {
                 // This lambda determines whether user consent for non-essential cookies is needed for a given request.
@@ -68,7 +76,7 @@ namespace Bet.AspNetCore.Sample
             services.AddDbContext<ApplicationDbContext>(options =>
             {
                 var dbPath = Configuration.GetValue<string>("DatabasePath");
-                var connectionString = $"Filename={dbPath}app.db";
+                var connectionString = $"Data Source={dbPath}app.db";
                 options.UseSqlite(connectionString);
 
                 // options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"));
@@ -77,18 +85,19 @@ namespace Bet.AspNetCore.Sample
             services.AddDefaultIdentity<IdentityUser>()
                     .AddEntityFrameworkStores<ApplicationDbContext>();
 
-            services.AddMvc()
-                    .AddNewtonsoftJson();
+            services.AddControllersWithViews().AddNewtonsoftJson();
 
-            services.AddRazorPages()
-                    .AddNewtonsoftJson();
+            services.AddRazorPages().AddNewtonsoftJson();
 
             services.AddAzureStorageAccount()
                 .AddAzureBlobContainer<UploadsBlobOptions>()
                 .AddAzureStorageForStaticFiles<UploadsBlobStaticFilesOptions>();
 
-            // Preview 8 has been fixed https://github.com/microsoft/aspnet-api-versioning/issues/499
-            services.AddSwaggerGenWithApiVersion(AppName);
+            services.AddSwaggerGenWithApiVersion<Startup>(includeXmlComments: true);
+            // https://github.com/domaindrivendev/Swashbuckle.AspNetCore#systemtextjson-stj-vs-newtonsoft
+            services.AddSwaggerGenNewtonsoftSupport(); // explicit opt-in - needs to be placed after AddSwaggerGen()
+
+            services.AddJwtAuthentication();
 
             var buildModels = Configuration.GetValue<bool>("BuildModels");
 
@@ -100,6 +109,22 @@ namespace Bet.AspNetCore.Sample
                     builder.UnobservedTaskExceptionHandler = null;
                 });
             }
+
+            // Adds custom Api Error Handling.
+            services.AddProblemDetails(
+               options =>
+               {
+                   options.IncludeExceptionDetails = (ctx, ex) =>
+                   {
+                        // Fetch services from HttpContext.RequestServices
+                        var env = ctx.RequestServices.GetRequiredService<IHostEnvironment>();
+                        return env.IsDevelopment() || env.IsStaging();
+                   };
+
+                   options.MapToStatusCode<NotImplementedException>(StatusCodes.Status501NotImplemented);
+                   options.MapToStatusCode<HttpRequestException>(StatusCodes.Status503ServiceUnavailable);
+                   options.MapToStatusCode<Exception>(StatusCodes.Status500InternalServerError);
+               }); // Add
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -118,6 +143,8 @@ namespace Bet.AspNetCore.Sample
                 },
                 prod =>
                 {
+                    app.UseForwardedHeaders();
+
                     app.UseExceptionHandler("/Error");
 
                     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
@@ -125,6 +152,8 @@ namespace Bet.AspNetCore.Sample
 
                     return prod;
                 });
+
+            app.UseProblemDetails(); // Add the middleware
 
             app.UseOrNotHttpsRedirection();
 

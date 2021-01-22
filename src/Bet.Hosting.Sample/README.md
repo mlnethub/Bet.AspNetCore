@@ -1,18 +1,34 @@
 ﻿# .NET Core Service Worker for Machine Learning (ML.NET) Model Building
 
+> The second letter in the Hebrew alphabet is the ב bet/beit. Its meaning is "house". In the ancient pictographic Hebrew it was a symbol resembling a tent on a landscape.
+
+[![buymeacoffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/vyve0og)
+
+## Give a Star! :star:
+
+If you like or are using this project to learn or start your solution, please give it a star. Thanks!
+
+## Summary
+
 This example demonstrates how to schedule Machine Learning Model building process for Spam and Sentiment ML.NET models.
 
 The idea is that ML.NET model is not stale and would have the input of a new `datapoints` and would require the rebuild of the model at the eve of each day.
 
 The sample was designed to be run Kubernetes Cluster in two ways:
 
-1. `.NET Core Service Worker` (this would require a consistent memory allocation). This also demonstrates `worker` tcp based health check
-2. or as a Cron Job (preferred usage).
+1. As `.NET Core Worker` (this would require a consistent memory allocation). This also demonstrates `worker` tcp based health check for the pod. The schedule is based on CronScheduler.
+![healthcheck](../../img/betworker-tcp-healthcheck.JPG)
+
+2. As a Cron Job (preferred usage). The execution schedule is based on Kubernetes
 
 This sample is fully containerized to be used as:
 
 1. As stand-alone Docker container that runs application every 30 min interval. It utilizes `TcpListener` for Pod health checks.
 2. As [Kubernetes CronJob](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) with interval specified in the deployment which is once a day at 1:00am.
+
+## Azure
+
+- Azure Blob storage has to have permission for MSI access as `Storage Blob Data Contributor`
 
 ## Build and Deploy
 
@@ -38,16 +54,16 @@ Make sure to execute all of the commands from the solution folder.
 ```bash
 
     # install cron job
-    helm install k8s/bethosting/charts/betcronjob --name betcronjob
+    helm install betcronjob k8s/bethosting/charts/betcronjob --set aadpodidbinding=[msiId],local.enabled=false
 
     # delete cron job
-    helm delete  betcronjob --purge
+    helm uninstall  betcronjob
 
     # install worker pod
-    helm install  k8s/bethosting/charts/betworker --name betworker
+    helm install  betworker k8s/bethosting/charts/betworker --set aadpodidbinding=[msiId],local.enabled=false
 
     # delete worker deployment
-    helm delete  betworker --purge
+    helm uninstall  betworker
 ```
 
 Or
@@ -88,3 +104,8 @@ spec:
 - Install `kubectl apply -f "cronjob.yaml"`
 
 - Remove `kubectl delete -f "cronjob.yaml"`
+
+## Hosting
+
+- `RunConsoleAsync` – Enables console support
+- `UseConsoleLifetime` – Listens for shutdown signals
